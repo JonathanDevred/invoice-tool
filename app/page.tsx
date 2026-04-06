@@ -13,9 +13,15 @@ type Item = {
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
 
   useEffect(() => {
     setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("success") === "true") {
+      setIsPaid(true);
+    }
   }, []);
 
   const [form, setForm] = useState({
@@ -56,7 +62,7 @@ export default function Home() {
     0
   );
 
-  const generatePDF = async (watermark: boolean) => {
+  const generatePDF = async () => {
     if (isMobile) return;
 
     try {
@@ -98,7 +104,8 @@ export default function Home() {
 
       pdf.addImage(dataUrl, "PNG", x, y, width, height);
 
-      if (watermark) {
+      // watermark uniquement si pas payé
+      if (!isPaid) {
         pdf.setFontSize(9);
         pdf.setTextColor(150);
         pdf.text("Created with GetPaidFast", pageWidth / 2, 290, {
@@ -118,6 +125,20 @@ export default function Home() {
     }
   };
 
+  const handleCheckout = async () => {
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+      });
+
+      const data = await res.json();
+      window.location.href = data.url;
+
+    } catch (err) {
+      alert("Payment error. Try again.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6 sm:p-6 text-black">
 
@@ -131,8 +152,14 @@ export default function Home() {
         />
 
         <p className="text-gray-600 text-sm mt-3">
-          Used by +1,200 freelances last week!
+          Used by +1,200 freelancers last week
         </p>
+
+        {isPaid && (
+          <p className="text-green-600 text-sm mt-2 font-medium">
+            Payment successful — watermark removed 🎉
+          </p>
+        )}
 
         <div className="mt-5 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
       </div>
@@ -143,7 +170,6 @@ export default function Home() {
         {/* FORM */}
         <div className="bg-white p-5 sm:p-6 rounded-xl border shadow-sm space-y-4">
 
-          {/* INVOICE INFO */}
           <input name="invoiceNumber" placeholder="Invoice number" onChange={handleChange} className="input" />
 
           <div className="grid grid-cols-2 gap-2">
@@ -168,7 +194,6 @@ export default function Home() {
             />
           </div>
 
-          {/* PARTIES */}
           <input name="yourName" placeholder="Your name" onChange={handleChange} className="input" />
           <input name="yourAddress" placeholder="Your address" onChange={handleChange} className="input" />
           <input name="clientName" placeholder="Client name" onChange={handleChange} className="input" />
@@ -205,15 +230,9 @@ export default function Home() {
             </button>
           </div>
 
-          {/* PAYMENT (APRES ITEMS) */}
           <textarea
             name="paymentDetails"
-            placeholder={`Payment details (Bank / Wise / PayPal)
-            Example:
-            Bank transfer (USD)
-            Account name: John Doe
-            IBAN: XXXX
-            SWIFT: XXXX`}
+            placeholder="Payment details (Bank, Wise, PayPal...)"
             onChange={handleChange}
             className="input"
             rows={4}
@@ -224,19 +243,21 @@ export default function Home() {
 
             <button
               disabled={isMobile || loading}
-              onClick={() => generatePDF(true)}
-              className={`btn-primary cursor-pointer hover:opacity-80 transition ${isMobile ? "disabled-btn" : ""}`}
+              onClick={generatePDF}
+              className={`btn-primary ${isMobile ? "disabled-btn" : ""}`}
             >
               {isMobile
                 ? "Download PDF (Desktop only)"
                 : loading
                 ? "Generating PDF..."
+                : isPaid
+                ? "Download clean PDF"
                 : "Download PDF (free)"}
             </button>
 
-            {!isMobile && (
+            {!isMobile && !isPaid && (
               <button
-                onClick={() => window.open("https://gumroad.com", "_blank")}
+                onClick={handleCheckout}
                 className="btn-secondary cursor-pointer hover:opacity-80 transition"
               >
                 Remove watermark — $5
@@ -246,11 +267,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* PREVIEW */}
+        {/* PREVIEW inchangé */}
         <div className="hidden lg:flex justify-center">
           <div id="invoice" style={{ width: "794px", height: "1123px", padding: "50px", background: "#fff" }}>
 
-            {/* HEADER */}
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "40px" }}>
               <div>
                 <h1 style={{ fontSize: "28px" }}>INVOICE</h1>
@@ -263,7 +283,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* PARTIES */}
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "40px" }}>
               <div>
                 <p style={{ color: "#666" }}>FROM</p>
@@ -278,7 +297,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* ITEMS */}
             <table style={{ width: "100%" }}>
               <thead>
                 <tr style={{ background: "#f3f4f6" }}>
@@ -301,20 +319,17 @@ export default function Home() {
               </tbody>
             </table>
 
-            {/* TOTAL */}
             <div style={{ marginTop: "40px", textAlign: "right" }}>
               <p>Subtotal: ${total}</p>
               <p style={{ fontWeight: "bold" }}>Total: ${total}</p>
             </div>
 
-            {/* PAYMENT */}
-              <div style={{ marginTop: "40px" }}>
-                <p style={{ fontWeight: "bold" }}>Payment Details</p>
-                <p style={{ whiteSpace: "pre-line", color: "#444" }}>
-                  {form.paymentDetails}
-                </p>
-              </div>
-            
+            <div style={{ marginTop: "40px" }}>
+              <p style={{ fontWeight: "bold" }}>Payment Details</p>
+              <p style={{ whiteSpace: "pre-line", color: "#444" }}>
+                {form.paymentDetails}
+              </p>
+            </div>
 
           </div>
         </div>

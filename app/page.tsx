@@ -4,6 +4,12 @@ import { useState } from "react";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 
+type Item = {
+  description: string;
+  qty: number;
+  rate: number;
+};
+
 export default function Home() {
   const [form, setForm] = useState({
     invoiceNumber: "",
@@ -11,75 +17,111 @@ export default function Home() {
     yourAddress: "",
     clientName: "",
     clientAddress: "",
-    description: "",
-    amount: "",
     date: "",
+    items: [{ description: "", qty: 1, rate: 0 }] as Item[],
   });
 
   const handleChange = (e: any) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const downloadPDF = async () => {
-    const element = document.getElementById("pdf-template") as HTMLElement;
-    if (!element) return;
+  const updateItem = <K extends keyof Item>(
+    i: number,
+    field: K,
+    value: Item[K]
+  ) => {
+    const items = [...form.items];
+    items[i][field] = value;
+    setForm({ ...form, items });
+  };
 
-    // 👉 rendre visible temporairement
-    element.style.opacity = "1";
-    element.style.pointerEvents = "auto";
-    element.style.zIndex = "9999";
+  const addItem = () => {
+    setForm({
+      ...form,
+      items: [...form.items, { description: "", qty: 1, rate: 0 }],
+    });
+  };
 
-    // 👉 attendre rendu + fonts
-    await document.fonts.ready;
+  const total = form.items.reduce(
+    (sum, item) => sum + item.qty * item.rate,
+    0
+  );
+
+  const generatePDF = async (watermark: boolean) => {
+    const el = document.getElementById("invoice") as HTMLElement;
+    if (!el) return;
+
     await new Promise((r) => setTimeout(r, 200));
 
-    try {
-      const dataUrl = await toPng(element, {
-        pixelRatio: 2,
-        cacheBust: true,
-        backgroundColor: "#ffffff",
-      });
+    const dataUrl = await toPng(el, {
+      pixelRatio: 3,
+      backgroundColor: "#ffffff",
+    });
 
-      const pdf = new jsPDF("p", "mm", "a4");
+    const pdf = new jsPDF("p", "mm", "a4");
 
-      const img = new Image();
-      img.src = dataUrl;
+    const img = new Image();
+    img.src = dataUrl;
 
-      img.onload = () => {
-        const imgWidth = 210;
-        const imgHeight = (img.height * imgWidth) / img.width;
+    img.onload = () => {
+      const pageWidth = 210;
+      const pageHeight = 297;
 
-        pdf.addImage(img, "PNG", 0, 0, imgWidth, imgHeight);
-        pdf.save(`invoice-${form.invoiceNumber || "invoice"}.pdf`);
-      };
-    } catch (err) {
-      console.error("PDF error:", err);
-    }
+      const imgRatio = img.width / img.height;
 
-    // 👉 remettre invisible
-    element.style.opacity = "0";
-    element.style.pointerEvents = "none";
-    element.style.zIndex = "-1";
+      let renderWidth = pageWidth;
+      let renderHeight = pageWidth / imgRatio;
+
+      if (renderHeight > pageHeight) {
+        renderHeight = pageHeight;
+        renderWidth = pageHeight * imgRatio;
+      }
+
+      const x = (pageWidth - renderWidth) / 2;
+      const y = (pageHeight - renderHeight) / 2;
+
+      pdf.addImage(dataUrl, "PNG", x, y, renderWidth, renderHeight);
+
+      if (watermark) {
+        pdf.setFontSize(9);
+        pdf.setTextColor(150);
+        pdf.text("Created with GetPaidFast", 105, 290, { align: "center" });
+      }
+
+      pdf.save(`invoice-${form.invoiceNumber}.pdf`);
+    };
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-6 text-black">
 
       {/* HEADER */}
-      <div className="max-w-5xl mx-auto mb-10">
-        <h1 className="text-4xl font-bold text-gray-900">
-          Create invoices in seconds
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Simple, clean, and ready to send.
-        </p>
+      <div className="max-w-6xl mx-auto mb-10">
+
+        <div className="flex items-center justify-between">
+
+          <div className="flex items-center gap-4">
+          <img
+            src="/Header.png"
+            alt="GetPaidFast Logo"
+            className="h-30 w-auto object-contain cursor-pointer"
+            onClick={() => window.location.reload()}
+          />
+
+          <div>
+        </div>
       </div>
 
-      {/* MAIN */}
-      <div className="max-w-5xl mx-auto grid grid-cols-2 gap-8">
+        </div>
+
+        <div className="mt-6 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+
+      </div>
+
+      <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-10">
 
         {/* FORM */}
-        <div className="bg-white p-6 rounded-xl border shadow-sm flex flex-col gap-4">
+        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-3">
 
           {[
             ["invoiceNumber", "Invoice number"],
@@ -87,148 +129,182 @@ export default function Home() {
             ["yourAddress", "Your address"],
             ["clientName", "Client name"],
             ["clientAddress", "Client address"],
-            ["description", "Description"],
-            ["amount", "Amount ($)"],
           ].map(([name, placeholder]) => (
             <input
               key={name}
               name={name}
               placeholder={placeholder}
               onChange={handleChange}
-              className="border p-3 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="input"
             />
           ))}
 
-          <input
-            name="date"
-            type="date"
-            onChange={handleChange}
-            className="border p-3 rounded-lg text-gray-900"
-          />
+          <input type="date" name="date" onChange={handleChange} className="input" />
 
-          {/* BUTTONS */}
-          <button
-            onClick={downloadPDF}
-            className="mt-4 bg-gradient-to-r from-gray-900 to-gray-700 text-white p-3 rounded-lg hover:opacity-90 transition"
-          >
-            Download PDF (free)
-          </button>
+          <div className="pt-4">
+            <p className="font-medium mb-2">Items</p>
 
-          <button
-            className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-3 rounded-lg hover:opacity-90 transition"
-          >
-            Download clean PDF — $5
-          </button>
+            {form.items.map((item, i) => (
+              <div key={i} className="grid grid-cols-4 gap-2 mb-2">
+                <input
+                  placeholder="Description"
+                  className="input col-span-2"
+                  onChange={(e) => updateItem(i, "description", e.target.value)}
+                />
+                <input
+                  placeholder="Qty"
+                  type="number"
+                  className="input"
+                  onChange={(e) => updateItem(i, "qty", Number(e.target.value))}
+                />
+                <input
+                  placeholder="Price"
+                  type="number"
+                  className="input"
+                  onChange={(e) => updateItem(i, "rate", Number(e.target.value))}
+                />
+              </div>
+            ))}
 
+            <button onClick={addItem} className="link-btn">
+              + Add item
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-3 mt-4">
+            <button onClick={() => generatePDF(true)} className="btn-primary">
+              Download PDF (free)
+            </button>
+
+            <button
+              onClick={() => window.open("https://gumroad.com", "_blank")}
+              className="btn-secondary"
+            >
+              Remove watermark — $5
+            </button>
+
+          </div>
         </div>
 
-        {/* PREVIEW UI */}
-        <div className="bg-white p-10 rounded-xl border shadow-sm text-black">
+        {/* PREVIEW */}
+        <div className="flex justify-center">
+          <div
+            id="invoice"
+            style={{
+              width: "794px",
+              height: "1123px",
+              padding: "50px",
+              background: "#fff",
+              boxSizing: "border-box",
+              fontFamily: "Inter, Arial",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "40px" }}>
+              <div>
+                <h1 style={{ fontSize: "28px" }}>INVOICE</h1>
+                <p style={{ color: "#666" }}>#{form.invoiceNumber}</p>
+              </div>
 
-          <div className="flex justify-between mb-6">
-            <h2 className="text-2xl font-bold">INVOICE</h2>
+              <div>
+                <p>{form.date}</p>
+              </div>
+            </div>
 
-            <div className="text-right text-sm">
-              <p><strong>Invoice #</strong> {form.invoiceNumber}</p>
-              <p>{form.date}</p>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "40px" }}>
+              <div>
+                <p style={{ color: "#666" }}>FROM</p>
+                <p>{form.yourName}</p>
+                <p>{form.yourAddress}</p>
+              </div>
+
+              <div>
+                <p style={{ color: "#666" }}>TO</p>
+                <p>{form.clientName}</p>
+                <p>{form.clientAddress}</p>
+              </div>
+            </div>
+
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#f3f4f6" }}>
+                  <th style={{ padding: "10px", textAlign: "left" }}>Description</th>
+                  <th>Qty</th>
+                  <th>Rate</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {form.items.map((item, i) => (
+                  <tr key={i} style={{ borderTop: "1px solid #e5e7eb" }}>
+                    <td style={{ padding: "10px" }}>{item.description}</td>
+                    <td>{item.qty}</td>
+                    <td>${item.rate}</td>
+                    <td>${item.qty * item.rate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ marginTop: "40px", textAlign: "right" }}>
+              <p>Subtotal: ${total}</p>
+              <p>Tax: $0</p>
+              <p style={{ fontSize: "18px", fontWeight: "bold" }}>
+                Total: ${total}
+              </p>
             </div>
           </div>
-
-          <div className="space-y-4 text-sm">
-
-            <div>
-              <p className="font-semibold">From</p>
-              <p>{form.yourName}</p>
-              <p>{form.yourAddress}</p>
-            </div>
-
-            <div>
-              <p className="font-semibold">To</p>
-              <p>{form.clientName}</p>
-              <p>{form.clientAddress}</p>
-            </div>
-
-            <div>
-              <p><strong>Description:</strong> {form.description}</p>
-            </div>
-          </div>
-
-          <div className="border-t my-6"></div>
-
-          <div className="flex justify-between items-center">
-            <span className="font-medium">Total</span>
-            <span className="text-2xl font-bold">
-              {form.amount ? `$${form.amount}` : ""}
-            </span>
-          </div>
-
-          <p className="text-gray-500 mt-10 text-sm">
-            Created with GetPaidFast
-          </p>
         </div>
+
       </div>
 
-      {/* PDF TEMPLATE (PRO CLEAN) */}
-      <div
-        id="pdf-template"
-        style={{
-          position: "fixed",
-          top: "0",
-          left: "0",
-          opacity: 0,
-          pointerEvents: "none",
-          zIndex: -1,
-          width: "794px",
-          background: "#ffffff",
-          padding: "50px",
-          color: "#000",
-          fontFamily: "Arial, sans-serif",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "50px" }}>
-          <div>
-            <h1 style={{ fontSize: "26px", margin: 0 }}>INVOICE</h1>
-            <p style={{ marginTop: "6px", color: "#555" }}>GetPaidFast</p>
-          </div>
+      <style jsx>{`
+        .input {
+          border: 1px solid #e5e7eb;
+          padding: 10px;
+          border-radius: 8px;
+          width: 100%;
+        }
 
-          <div style={{ textAlign: "right", fontSize: "12px" }}>
-            <p><strong>Invoice #</strong> {form.invoiceNumber}</p>
-            <p>{form.date}</p>
-          </div>
-        </div>
+        .btn-primary {
+          background: linear-gradient(to right, #4f46e5, #6366f1);
+          color: white;
+          padding: 14px;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: 0.2s;
+          width: 100%;
+        }
 
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "50px" }}>
-          <div>
-            <p><strong>From</strong></p>
-            <p>{form.yourName}</p>
-            <p>{form.yourAddress}</p>
-          </div>
+        .btn-primary:hover {
+          transform: translateY(-2px);
+          opacity: 0.95;
+        }
 
-          <div>
-            <p><strong>To</strong></p>
-            <p>{form.clientName}</p>
-            <p>{form.clientAddress}</p>
-          </div>
-        </div>
+        .btn-secondary {
+          background: linear-gradient(to right, #06b6d4, #3b82f6);
+          color: white;
+          padding: 14px;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: 0.2s;
+          width: 100%;
+        }
 
-        <div style={{ marginBottom: "50px" }}>
-          <p><strong>Description</strong></p>
-          <p>{form.description}</p>
-        </div>
+        .btn-secondary:hover {
+          transform: translateY(-2px);
+          opacity: 0.95;
+        }
 
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          borderTop: "2px solid #000",
-          paddingTop: "20px"
-        }}>
-          <span>Total</span>
-          <span style={{ fontSize: "22px", fontWeight: "bold" }}>
-            {form.amount ? `$${form.amount}` : ""}
-          </span>
-        </div>
-      </div>
+        .link-btn {
+          color: #4f46e5;
+          cursor: pointer;
+        }
 
+        .link-btn:hover {
+          text-decoration: underline;
+        }
+      `}</style>
     </div>
   );
 }

@@ -93,35 +93,38 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 text-black">
+    <div className="min-h-screen bg-gray-50 px-4 py-6 sm:p-6 text-black">
 
       {/* HEADER */}
-      <div className="max-w-6xl mx-auto mb-10">
+      <div className="max-w-6xl mx-auto mb-8">
 
         <div className="flex items-center justify-between">
 
-          <div className="flex items-center gap-4">
           <img
             src="/Header.png"
-            alt="GetPaidFast Logo"
-            className="h-30 w-auto object-contain cursor-pointer"
-            onClick={() => window.location.reload()}
+            alt="GetPaidFast"
+            className="h-30 w-auto cursor-pointer hover:opacity-80 transition"
+            onClick={() => window.location.href = "/"}
           />
 
-          <div>
-        </div>
-      </div>
-
         </div>
 
-        <div className="mt-6 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+        {/* HOOK */}
+
+
+        <p className="text-xs text-gray-400 mt-1">
+          Used by 1,200+ freelancers this week
+        </p>
+
+        <div className="mt-5 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
 
       </div>
 
-      <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-10">
+      {/* MAIN */}
+      <div className="max-w-6xl mx-auto flex flex-col lg:grid lg:grid-cols-2 gap-6">
 
         {/* FORM */}
-        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-3">
+        <div className="bg-white p-5 sm:p-6 rounded-xl border shadow-sm space-y-3">
 
           {[
             ["invoiceNumber", "Invoice number"],
@@ -139,16 +142,22 @@ export default function Home() {
             />
           ))}
 
-          <input type="date" name="date" onChange={handleChange} className="input" />
+          <input
+            type="date"
+            name="date"
+            onChange={handleChange}
+            className="input"
+          />
 
+          {/* ITEMS */}
           <div className="pt-4">
             <p className="font-medium mb-2">Items</p>
 
             {form.items.map((item, i) => (
-              <div key={i} className="grid grid-cols-4 gap-2 mb-2">
+              <div key={i} className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-2">
                 <input
                   placeholder="Description"
-                  className="input col-span-2"
+                  className="input col-span-3 sm:col-span-2"
                   onChange={(e) => updateItem(i, "description", e.target.value)}
                 />
                 <input
@@ -171,8 +180,13 @@ export default function Home() {
             </button>
           </div>
 
+          {/* CTA */}
           <div className="flex flex-col gap-3 mt-4">
-            <button onClick={() => generatePDF(true)} className="btn-primary">
+
+            <button
+              onClick={() => generatePDF(true)}
+              className="btn-primary"
+            >
               Download PDF (free)
             </button>
 
@@ -184,10 +198,11 @@ export default function Home() {
             </button>
 
           </div>
+
         </div>
 
-        {/* PREVIEW */}
-        <div className="flex justify-center">
+        {/* PREVIEW (DESKTOP ONLY) */}
+        <div className="hidden lg:flex justify-center">
           <div
             id="invoice"
             style={{
@@ -258,22 +273,26 @@ export default function Home() {
 
       </div>
 
+      {/* STYLES */}
       <style jsx>{`
         .input {
           border: 1px solid #e5e7eb;
-          padding: 10px;
-          border-radius: 8px;
+          padding: 14px;
+          border-radius: 10px;
           width: 100%;
+          font-size: 16px;
         }
 
         .btn-primary {
           background: linear-gradient(to right, #4f46e5, #6366f1);
           color: white;
-          padding: 14px;
+          padding: 16px;
           border-radius: 10px;
           cursor: pointer;
           transition: 0.2s;
           width: 100%;
+          font-size: 16px;
+          min-height: 52px;
         }
 
         .btn-primary:hover {
@@ -284,11 +303,13 @@ export default function Home() {
         .btn-secondary {
           background: linear-gradient(to right, #06b6d4, #3b82f6);
           color: white;
-          padding: 14px;
+          padding: 16px;
           border-radius: 10px;
           cursor: pointer;
           transition: 0.2s;
           width: 100%;
+          font-size: 16px;
+          min-height: 52px;
         }
 
         .btn-secondary:hover {
@@ -299,6 +320,7 @@ export default function Home() {
         .link-btn {
           color: #4f46e5;
           cursor: pointer;
+          font-size: 14px;
         }
 
         .link-btn:hover {

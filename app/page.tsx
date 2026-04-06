@@ -53,20 +53,39 @@ export default function Home() {
     try {
       setLoading(true);
   
-      const el = document.getElementById("invoice") as HTMLElement;
-      if (!el) return;
+      const el = document.getElementById("invoice");
+      if (!el) throw new Error("Invoice element not found");
   
       await new Promise((r) => setTimeout(r, 300));
   
-      const dataUrl = await toPng(el, {
-        pixelRatio: 2,
-        backgroundColor: "#ffffff",
-        cacheBust: true,
-      });
+      let dataUrl: string;
+  
+      try {
+        // ✅ tentative normale
+        dataUrl = await toPng(el, {
+          pixelRatio: 2,
+          backgroundColor: "#ffffff",
+          cacheBust: true,
+        });
+      } catch (e) {
+        console.warn("PNG failed, fallback to JPEG");
+  
+        // ✅ fallback iOS (plus stable)
+        dataUrl = await toPng(el, {
+          pixelRatio: 1.5,
+          backgroundColor: "#ffffff",
+          cacheBust: true,
+        });
+      }
+  
+      // 🔒 sécurité format
+      if (!dataUrl.startsWith("data:image")) {
+        throw new Error("Invalid image format");
+      }
   
       const pdf = new jsPDF("p", "mm", "a4");
   
-      // ✅ FIX MOBILE: attendre image correctement
+      // ✅ pas de getImageProperties → jamais
       const img = new Image();
       img.src = dataUrl;
   
@@ -78,21 +97,18 @@ export default function Home() {
       const pageWidth = 210;
       const pageHeight = 297;
   
-      const imgWidth = img.width;
-      const imgHeight = img.height;
-  
       const ratio = Math.min(
-        pageWidth / imgWidth,
-        pageHeight / imgHeight
+        pageWidth / img.width,
+        pageHeight / img.height
       );
   
-      const renderWidth = imgWidth * ratio;
-      const renderHeight = imgHeight * ratio;
+      const width = img.width * ratio;
+      const height = img.height * ratio;
   
-      const x = (pageWidth - renderWidth) / 2;
-      const y = (pageHeight - renderHeight) / 2;
+      const x = (pageWidth - width) / 2;
+      const y = (pageHeight - height) / 2;
   
-      pdf.addImage(dataUrl, "PNG", x, y, renderWidth, renderHeight);
+      pdf.addImage(dataUrl, "PNG", x, y, width, height);
   
       if (watermark) {
         pdf.setFontSize(9);
@@ -102,15 +118,20 @@ export default function Home() {
         });
       }
   
+      // ouverture iOS 
       const blob = pdf.output("blob");
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+  
+      const fileURL = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = fileURL;
+      link.target = "_blank";
+      link.click();
   
     } catch (err) {
-      console.error(err);
-      alert("Error generating PDF. Try again.");
+      console.error("PDF ERROR:", err);
+      alert("PDF generation failed. Try again.");
     } finally {
-      setLoading(false); // ✅ toujours exécuté
+      setLoading(false);
     }
   };
 

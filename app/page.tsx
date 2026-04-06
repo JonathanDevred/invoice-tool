@@ -11,6 +11,8 @@ type Item = {
 };
 
 export default function Home() {
+  const [loading, setLoading] = useState(false);
+
   const [form, setForm] = useState({
     invoiceNumber: "",
     yourName: "",
@@ -48,48 +50,68 @@ export default function Home() {
   );
 
   const generatePDF = async (watermark: boolean) => {
-    const el = document.getElementById("invoice") as HTMLElement;
-    if (!el) return;
-
-    await new Promise((r) => setTimeout(r, 200));
-
-    const dataUrl = await toPng(el, {
-      pixelRatio: 3,
-      backgroundColor: "#ffffff",
-    });
-
-    const pdf = new jsPDF("p", "mm", "a4");
-
-    const img = new Image();
-    img.src = dataUrl;
-
-    img.onload = () => {
+    try {
+      setLoading(true);
+  
+      const el = document.getElementById("invoice") as HTMLElement;
+      if (!el) return;
+  
+      await new Promise((r) => setTimeout(r, 300));
+  
+      const dataUrl = await toPng(el, {
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+        cacheBust: true,
+      });
+  
+      const pdf = new jsPDF("p", "mm", "a4");
+  
+      // ✅ FIX MOBILE: attendre image correctement
+      const img = new Image();
+      img.src = dataUrl;
+  
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+  
       const pageWidth = 210;
       const pageHeight = 297;
-
-      const imgRatio = img.width / img.height;
-
-      let renderWidth = pageWidth;
-      let renderHeight = pageWidth / imgRatio;
-
-      if (renderHeight > pageHeight) {
-        renderHeight = pageHeight;
-        renderWidth = pageHeight * imgRatio;
-      }
-
+  
+      const imgWidth = img.width;
+      const imgHeight = img.height;
+  
+      const ratio = Math.min(
+        pageWidth / imgWidth,
+        pageHeight / imgHeight
+      );
+  
+      const renderWidth = imgWidth * ratio;
+      const renderHeight = imgHeight * ratio;
+  
       const x = (pageWidth - renderWidth) / 2;
       const y = (pageHeight - renderHeight) / 2;
-
+  
       pdf.addImage(dataUrl, "PNG", x, y, renderWidth, renderHeight);
-
+  
       if (watermark) {
         pdf.setFontSize(9);
         pdf.setTextColor(150);
-        pdf.text("Created with GetPaidFast", 105, 290, { align: "center" });
+        pdf.text("Created with GetPaidFast", pageWidth / 2, 290, {
+          align: "center",
+        });
       }
-
-      pdf.save(`invoice-${form.invoiceNumber}.pdf`);
-    };
+  
+      const blob = pdf.output("blob");
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+  
+    } catch (err) {
+      console.error(err);
+      alert("Error generating PDF. Try again.");
+    } finally {
+      setLoading(false); // ✅ toujours exécuté
+    }
   };
 
   return (
@@ -110,7 +132,6 @@ export default function Home() {
         </div>
 
         {/* HOOK */}
-
 
         <p className="text-xs text-gray-400 mt-1">
           Used by 1,200+ freelancers this week
@@ -142,9 +163,15 @@ export default function Home() {
             />
           ))}
 
+          {/* DATE UX FIX */}
           <input
-            type="date"
+            type="text"
             name="date"
+            placeholder="Date"
+            onFocus={(e) => (e.target.type = "date")}
+            onBlur={(e) => {
+              if (!e.target.value) e.target.type = "text";
+            }}
             onChange={handleChange}
             className="input"
           />
@@ -184,10 +211,11 @@ export default function Home() {
           <div className="flex flex-col gap-3 mt-4">
 
             <button
+              disabled={loading}
               onClick={() => generatePDF(true)}
               className="btn-primary"
             >
-              Download PDF (free)
+              {loading ? "Generating PDF..." : "Download PDF (free)"}
             </button>
 
             <button
@@ -283,12 +311,16 @@ export default function Home() {
           font-size: 16px;
         }
 
+        button {
+          cursor: pointer;
+          touch-action: manipulation;
+        }
+
         .btn-primary {
           background: linear-gradient(to right, #4f46e5, #6366f1);
           color: white;
           padding: 16px;
           border-radius: 10px;
-          cursor: pointer;
           transition: 0.2s;
           width: 100%;
           font-size: 16px;
@@ -300,12 +332,16 @@ export default function Home() {
           opacity: 0.95;
         }
 
+        .btn-primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
         .btn-secondary {
           background: linear-gradient(to right, #06b6d4, #3b82f6);
           color: white;
           padding: 16px;
           border-radius: 10px;
-          cursor: pointer;
           transition: 0.2s;
           width: 100%;
           font-size: 16px;

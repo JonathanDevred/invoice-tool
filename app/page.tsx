@@ -151,9 +151,7 @@ export default function Home() {
           onClick={() => window.location.href = "/"}
         />
 
-        <p className="text-sm text-gray-500 mt-2">
-          Used by 1,200+ freelances and contractors last month!
-        </p>
+
 
         {paid && (
           <div className="mt-3 bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg text-sm">
@@ -218,15 +216,19 @@ export default function Home() {
 
             {!isMobile && !paid && (
               <button
-                onClick={() =>
-                  window.open("https://buy.stripe.com/bJe7sE0EX9c8eI1cFH1kA00?locale=en","_blank")
-                }
-                className="btn-secondary"
-              >
-                Remove watermark — $5
-              </button>
+              onClick={() =>
+                window.open("https://buy.stripe.com/bJe7sE0EX9c8eI1cFH1kA00?locale=en","_blank")
+              }
+              className="btn-secondary"
+            >
+              Remove watermark — $5
+            </button>
             )}
+                        <p className="text-xs text-gray-500 text-center -mt-1">
+              Valid for 24h on this device after payment
+            </p>
           </div>
+
         </div>
 
         {/* PREVIEW */}

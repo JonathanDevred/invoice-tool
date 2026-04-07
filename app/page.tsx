@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toPng } from "html-to-image";
+import jsPDF from "jspdf";
 
 type Item = {
   description: string;
@@ -11,14 +13,14 @@ type Item = {
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [isPaid, setIsPaid] = useState(false);
+  const [paid, setPaid] = useState(false);
 
   useEffect(() => {
     setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get("success") === "true") {
-      setIsPaid(true);
+    if (params.get("paid") === "true") {
+      setPaid(true);
     }
   }, []);
 
@@ -66,10 +68,6 @@ export default function Home() {
     try {
       setLoading(true);
 
-      // ✅ import dynamique (FIX BUILD)
-      const { toPng } = await import("html-to-image");
-      const jsPDF = (await import("jspdf")).default;
-
       const el = document.getElementById("invoice");
       if (!el) return;
 
@@ -85,10 +83,7 @@ export default function Home() {
       const img = new Image();
       img.src = dataUrl;
 
-      await new Promise((res, rej) => {
-        img.onload = res;
-        img.onerror = rej;
-      });
+      await new Promise((res) => (img.onload = res));
 
       const pageWidth = 210;
       const pageHeight = 297;
@@ -106,7 +101,7 @@ export default function Home() {
 
       pdf.addImage(dataUrl, "PNG", x, y, width, height);
 
-      if (!isPaid) {
+      if (!paid) {
         pdf.setFontSize(9);
         pdf.setTextColor(150);
         pdf.text("Created with GetPaidFast", pageWidth / 2, 290, {
@@ -117,26 +112,11 @@ export default function Home() {
       const blob = pdf.output("blob");
       const url = URL.createObjectURL(blob);
       window.open(url, "_blank");
-
     } catch (err) {
       console.error(err);
-      alert("Error generating PDF.");
+      alert("Error generating PDF");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCheckout = async () => {
-    try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-      });
-
-      const data = await res.json();
-      window.location.href = data.url;
-
-    } catch (err) {
-      alert("Payment error.");
     }
   };
 
@@ -147,68 +127,86 @@ export default function Home() {
       <div className="max-w-6xl mx-auto mb-8">
         <img
           src="/Header.png"
-          alt="GetPaidFast"
-          className="h-30 cursor-pointer hover:opacity-80 transition"
+          className="h-12 cursor-pointer hover:opacity-80 transition"
           onClick={() => window.location.href = "/"}
         />
 
-        <p className="text-gray-600 text-sm mt-3">
-          Used by +1,200 freelancers last week
+        <p className="text-sm text-gray-500 mt-2">
+          Create clean invoices. Get paid faster.
         </p>
 
-        {isPaid && (
-          <p className="text-green-600 text-sm mt-2 font-medium">
-            Payment successful — watermark removed 🎉
-          </p>
+        {paid && (
+          <div className="mt-3 bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg text-sm">
+            ✅ Payment successful — watermark removed
+          </div>
         )}
 
-        <div className="mt-5 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+        <div className="mt-5 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent" />
       </div>
 
       {/* MAIN */}
-      <div className="max-w-6xl mx-auto flex flex-col lg:grid lg:grid-cols-2 gap-6">
+      <div className="max-w-6xl mx-auto flex flex-col lg:grid lg:grid-cols-2 gap-8">
 
         {/* FORM */}
-        <div className="bg-white p-5 sm:p-6 rounded-xl border shadow-sm space-y-4">
+        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-4">
 
-          <input name="invoiceNumber" placeholder="Invoice number" onChange={handleChange} className="input" />
+          <input name="invoiceNumber" placeholder="Invoice number" onChange={handleChange} className="input"/>
 
-          <div className="grid grid-cols-2 gap-2">
-            <input type="text" name="date" placeholder="Invoice date"
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="text"
+              name="date"
+              placeholder="Invoice date"
               onFocus={(e) => (e.target.type = "date")}
               onBlur={(e) => !e.target.value && (e.target.type = "text")}
-              onChange={handleChange} className="input" />
-
-            <input type="text" name="dueDate" placeholder="Due date"
+              onChange={handleChange}
+              className="input"
+            />
+            <input
+              type="text"
+              name="dueDate"
+              placeholder="Due date"
               onFocus={(e) => (e.target.type = "date")}
               onBlur={(e) => !e.target.value && (e.target.type = "text")}
-              onChange={handleChange} className="input" />
+              onChange={handleChange}
+              className="input"
+            />
           </div>
 
-          <input name="yourName" placeholder="Your name" onChange={handleChange} className="input" />
-          <input name="yourAddress" placeholder="Your address" onChange={handleChange} className="input" />
-          <input name="clientName" placeholder="Client name" onChange={handleChange} className="input" />
-          <input name="clientAddress" placeholder="Client address" onChange={handleChange} className="input" />
+          <input name="yourName" placeholder="Your name" onChange={handleChange} className="input"/>
+          <input name="yourAddress" placeholder="Your address" onChange={handleChange} className="input"/>
+          <input name="clientName" placeholder="Client name" onChange={handleChange} className="input"/>
+          <input name="clientAddress" placeholder="Client address" onChange={handleChange} className="input"/>
 
           {/* ITEMS */}
           <div>
             <p className="font-medium mb-2">Items</p>
 
             {form.items.map((item, i) => (
-              <div key={i} className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-2">
-                <input className="input col-span-3 sm:col-span-2"
+              <div key={i} className="grid grid-cols-3 gap-2 mb-2">
+                <input
                   placeholder="Description"
-                  onChange={(e) => updateItem(i, "description", e.target.value)} />
-                <input className="input" type="number"
+                  className="input col-span-3"
+                  onChange={(e) => updateItem(i, "description", e.target.value)}
+                />
+                <input
                   placeholder="Qty"
-                  onChange={(e) => updateItem(i, "qty", Number(e.target.value))} />
-                <input className="input" type="number"
+                  type="number"
+                  className="input"
+                  onChange={(e) => updateItem(i, "qty", Number(e.target.value))}
+                />
+                <input
                   placeholder="Price"
-                  onChange={(e) => updateItem(i, "rate", Number(e.target.value))} />
+                  type="number"
+                  className="input"
+                  onChange={(e) => updateItem(i, "rate", Number(e.target.value))}
+                />
               </div>
             ))}
 
-            <button onClick={addItem} className="link-btn">+ Add item</button>
+            <button onClick={addItem} className="link-btn">
+              + Add item
+            </button>
           </div>
 
           <textarea
@@ -225,21 +223,26 @@ export default function Home() {
             <button
               disabled={isMobile || loading}
               onClick={generatePDF}
-              className={`btn-primary ${isMobile ? "disabled-btn" : ""}`}
+              className={`btn-primary ${isMobile ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {isMobile
-                ? "Download PDF (Desktop only)"
+                ? "Desktop only"
                 : loading
-                ? "Generating PDF..."
-                : isPaid
+                ? "Generating..."
+                : paid
                 ? "Download clean PDF"
                 : "Download PDF (free)"}
             </button>
 
-            {!isMobile && !isPaid && (
+            {!isMobile && !paid && (
               <button
-                onClick={handleCheckout}
-                className="btn-secondary cursor-pointer hover:opacity-80 transition"
+                onClick={() =>
+                  window.open(
+                    "https://buy.stripe.com/bJe7sE0EX9c8eI1cFH1kA00?locale=en",
+                    "_blank"
+                  )
+                }
+                className="btn-secondary"
               >
                 Remove watermark — $5
               </button>
@@ -248,13 +251,83 @@ export default function Home() {
           </div>
         </div>
 
-        {/* PREVIEW inchangé */}
+        {/* PREVIEW */}
         <div className="hidden lg:flex justify-center">
-          <div id="invoice" style={{ width: "794px", height: "1123px", padding: "50px", background: "#fff" }}>
-            {/* ... ton preview reste EXACTEMENT pareil */}
+          <div
+            id="invoice"
+            className="bg-white shadow-lg"
+            style={{
+              width: "794px",
+              height: "1123px",
+              padding: "50px",
+              fontFamily: "Inter, Arial",
+            }}
+          >
+
+            <div className="flex justify-between mb-10">
+              <div>
+                <h1 className="text-3xl font-semibold">INVOICE</h1>
+                <p className="text-gray-500 mt-1">#{form.invoiceNumber}</p>
+              </div>
+
+              <div className="text-right text-sm">
+                <p><strong>Date:</strong> {form.date}</p>
+                <p><strong>Due:</strong> {form.dueDate}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-between mb-10 text-sm">
+              <div>
+                <p className="text-gray-500 mb-1">FROM</p>
+                <p className="font-medium">{form.yourName}</p>
+                <p>{form.yourAddress}</p>
+              </div>
+
+              <div>
+                <p className="text-gray-500 mb-1">TO</p>
+                <p className="font-medium">{form.clientName}</p>
+                <p>{form.clientAddress}</p>
+              </div>
+            </div>
+
+            <table className="w-full text-sm border-t">
+              <thead>
+                <tr className="bg-gray-100 text-left">
+                  <th className="p-3">Description</th>
+                  <th>Qty</th>
+                  <th>Rate</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {form.items.map((item, i) => (
+                  <tr key={i} className="border-t">
+                    <td className="p-3">{item.description}</td>
+                    <td>{item.qty}</td>
+                    <td>${item.rate}</td>
+                    <td>${item.qty * item.rate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="mt-10 text-right">
+              <p className="text-gray-500">Subtotal: ${total}</p>
+              <p className="text-xl font-semibold mt-1">
+                Total: ${total}
+              </p>
+            </div>
+
+            <div className="mt-10 text-sm">
+              <p className="font-semibold mb-1">Payment</p>
+              <p className="text-gray-600 whitespace-pre-line">
+                {form.paymentDetails}
+              </p>
+            </div>
+
           </div>
         </div>
-
       </div>
 
       <style jsx>{`
@@ -270,6 +343,13 @@ export default function Home() {
           color: white;
           padding: 16px;
           border-radius: 10px;
+          cursor: pointer;
+          transition: 0.2s;
+        }
+
+        .btn-primary:hover {
+          transform: translateY(-2px);
+          opacity: 0.95;
         }
 
         .btn-secondary {
@@ -277,11 +357,13 @@ export default function Home() {
           color: white;
           padding: 16px;
           border-radius: 10px;
+          cursor: pointer;
+          transition: 0.2s;
         }
 
-        .disabled-btn {
-          opacity: 0.5;
-          cursor: not-allowed;
+        .btn-secondary:hover {
+          transform: translateY(-2px);
+          opacity: 0.95;
         }
 
         .link-btn {

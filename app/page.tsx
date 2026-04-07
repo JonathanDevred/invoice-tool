@@ -324,10 +324,68 @@ export default function Home() {
       </div>
 
       <style jsx>{`
-        .input { border:1px solid #e5e7eb; padding:14px; border-radius:10px; width:100%; }
-        .btn-primary { background:linear-gradient(to right,#4f46e5,#6366f1); color:white; padding:16px; border-radius:10px; }
-        .btn-secondary { background:linear-gradient(to right,#06b6d4,#3b82f6); color:white; padding:16px; border-radius:10px; }
-        .link-btn { color:#4f46e5; cursor:pointer; }
+        .input {
+  border: 1px solid #e5e7eb;
+  padding: 14px;
+  border-radius: 10px;
+  width: 100%;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.btn-primary {
+  background: linear-gradient(to right, #4f46e5, #6366f1);
+  color: white;
+  padding: 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.25);
+  opacity: 0.95;
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  background: linear-gradient(to right, #06b6d4, #3b82f6);
+  color: white;
+  padding: 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(6, 182, 212, 0.25);
+  opacity: 0.95;
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
+.link-btn {
+  color: #4f46e5;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+  opacity: 0.8;
+}
       `}</style>
     </div>
   );

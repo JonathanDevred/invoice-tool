@@ -127,12 +127,12 @@ export default function Home() {
       <div className="max-w-6xl mx-auto mb-8">
         <img
           src="/Header.png"
-          className="h-12 cursor-pointer hover:opacity-80 transition"
+          className="h-30 cursor-pointer hover:opacity-80 transition"
           onClick={() => window.location.href = "/"}
         />
 
         <p className="text-sm text-gray-500 mt-2">
-          Create clean invoices. Get paid faster.
+          Used by 1,200+ freelances and contractors last month!
         </p>
 
         {paid && (
@@ -238,7 +238,7 @@ export default function Home() {
               <button
                 onClick={() =>
                   window.open(
-                    "https://buy.stripe.com/bJe7sE0EX9c8eI1cFH1kA00?locale=en",
+                    "https://buy.stripe.com/test_14A28lcN1aYubh03sR9oc00?locale=en",
                     "_blank"
                   )
                 }

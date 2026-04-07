@@ -320,7 +320,7 @@ export default function Home() {
             </div>
 
             <div className="mt-10 text-sm">
-              <p className="font-semibold mb-1">Payment</p>
+              <p className="font-semibold mb-1">Payment Details</p>
               <p className="text-gray-600 whitespace-pre-line">
                 {form.paymentDetails}
               </p>

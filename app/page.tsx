@@ -31,6 +31,13 @@ export default function Home() {
   useEffect(() => {
     setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
 
+    const today = new Date().toISOString().split("T")[0];
+
+    setForm((prev) => ({
+      ...prev,
+      date: prev.date || today,
+    }));
+
     const params = new URLSearchParams(window.location.search);
 
     if (params.get("paid") === "true") {
@@ -92,7 +99,7 @@ export default function Home() {
       const el = document.getElementById("invoice");
       if (!el) return;
 
-      await new Promise((r) => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, 200));
 
       const dataUrl = await toPng(el as HTMLElement, {
         pixelRatio: 2,
@@ -110,25 +117,17 @@ export default function Home() {
       const pageHeight = 297;
 
       const ratio = Math.min(
-        pageWidth / img.width,
-        pageHeight / img.height
+        (pageWidth - 10) / img.width,
+        (pageHeight - 10) / img.height
       );
 
       const width = img.width * ratio;
       const height = img.height * ratio;
 
       const x = (pageWidth - width) / 2;
-      const y = (pageHeight - height) / 2;
+      const y = 5;
 
       pdf.addImage(dataUrl, "PNG", x, y, width, height);
-
-      if (!paid) {
-        pdf.setFontSize(9);
-        pdf.setTextColor(150);
-        pdf.text("Created with GetPaidFast", pageWidth / 2, 290, {
-          align: "center",
-        });
-      }
 
       const blob = pdf.output("blob");
       const url = URL.createObjectURL(blob);
@@ -158,7 +157,7 @@ export default function Home() {
 
         {paid && (
           <div className="mt-3 bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg text-sm">
-            ✅ Payment unlocked — valid for 24h on this device
+            ✅ Payment unlocked — valid 24h on this device
           </div>
         )}
 
@@ -174,15 +173,8 @@ export default function Home() {
           <input name="invoiceNumber" placeholder="Invoice number" onChange={handleChange} className="input"/>
 
           <div className="grid grid-cols-2 gap-3">
-            <input type="text" name="date" placeholder="Invoice date"
-              onFocus={(e)=>e.target.type="date"}
-              onBlur={(e)=>!e.target.value&&(e.target.type="text")}
-              onChange={handleChange} className="input"/>
-
-            <input type="text" name="dueDate" placeholder="Due date"
-              onFocus={(e)=>e.target.type="date"}
-              onBlur={(e)=>!e.target.value&&(e.target.type="text")}
-              onChange={handleChange} className="input"/>
+            <input type="date" name="date" value={form.date} onChange={handleChange} className="input"/>
+            <input type="date" name="dueDate" value={form.dueDate} onChange={handleChange} className="input"/>
           </div>
 
           <input name="yourName" placeholder="Your name" onChange={handleChange} className="input"/>
@@ -196,11 +188,11 @@ export default function Home() {
 
             {form.items.map((item, i) => (
               <div key={i} className="grid grid-cols-3 gap-2 mb-2">
-                <input placeholder="Description" className="input col-span-3"
+                <input className="input col-span-3" placeholder="Description"
                   onChange={(e)=>updateItem(i,"description",e.target.value)}/>
-                <input placeholder="Qty" type="number" className="input"
+                <input className="input" type="number" placeholder="Qty"
                   onChange={(e)=>updateItem(i,"qty",Number(e.target.value))}/>
-                <input placeholder="Price" type="number" className="input"
+                <input className="input" type="number" placeholder="Price"
                   onChange={(e)=>updateItem(i,"rate",Number(e.target.value))}/>
               </div>
             ))}
@@ -208,19 +200,10 @@ export default function Home() {
             <button onClick={addItem} className="link-btn">+ Add item</button>
           </div>
 
-                    {/* TAX */}
-                    <input
-            name="tax"
-            type="number"
-            placeholder="Tax (%)"
-            onChange={handleChange}
-            className="input"
-          />
+          <input name="tax" type="number" placeholder="Tax (%)" onChange={handleChange} className="input"/>
 
-          <textarea name="paymentDetails"
-            placeholder="Payment details (Bank, Wise, PayPal...)"
-            onChange={handleChange}
-            className="input" rows={4}/>
+          <textarea name="paymentDetails" placeholder="Payment details"
+            onChange={handleChange} className="input" rows={4}/>
 
           {/* CTA */}
           <div className="flex flex-col gap-3">
@@ -228,15 +211,9 @@ export default function Home() {
             <button
               disabled={isMobile || loading}
               onClick={generatePDF}
-              className={`btn-primary ${isMobile ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`btn-primary ${isMobile ? "opacity-50" : ""}`}
             >
-              {isMobile
-                ? "Desktop only"
-                : loading
-                ? "Generating..."
-                : paid
-                ? "Download clean PDF"
-                : "Download PDF (free)"}
+              {isMobile ? "Desktop only" : loading ? "Generating..." : paid ? "Download clean PDF" : "Download PDF"}
             </button>
 
             {!isMobile && !paid && (
@@ -249,14 +226,40 @@ export default function Home() {
                 Remove watermark — $5
               </button>
             )}
-
           </div>
         </div>
 
         {/* PREVIEW */}
         <div className="hidden lg:flex justify-center">
-          <div id="invoice" className="bg-white shadow-lg"
-            style={{ width:"794px", height:"1123px", padding:"50px", fontFamily:"Inter, Arial" }}>
+          <div
+            id="invoice"
+            className="bg-white shadow-lg relative"
+            style={{
+              width: "794px",
+              height: "1123px",
+              padding: "40px",
+              fontFamily: "Inter, Arial",
+            }}
+          >
+
+            {/* WATERMARK */}
+            {!paid && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%) rotate(-30deg)",
+                  fontSize: "70px",
+                  color: "rgba(0,0,0,0.05)",
+                  fontWeight: "bold",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                }}
+              >
+                GetPaidFast
+              </div>
+            )}
 
             <div className="flex justify-between mb-10">
               <div>
@@ -265,8 +268,8 @@ export default function Home() {
               </div>
 
               <div className="text-right text-sm">
-                <p><strong>Date:</strong> {form.date}</p>
-                <p><strong>Due:</strong> {form.dueDate}</p>
+                <p><strong>Invoice Date:</strong> {form.date}</p>
+                <p><strong>Due Date:</strong> {form.dueDate}</p>
               </div>
             </div>
 
@@ -307,9 +310,9 @@ export default function Home() {
             </table>
 
             <div className="mt-10 text-right">
-              <p className="text-gray-500">Subtotal: ${subtotal}</p>
-              <p className="text-gray-500">Tax ({form.tax}%): ${taxAmount.toFixed(2)}</p>
-              <p className="text-xl font-semibold mt-1">Total: ${total.toFixed(2)}</p>
+              <p>Subtotal: ${subtotal}</p>
+              <p>Tax ({form.tax}%): ${taxAmount.toFixed(2)}</p>
+              <p className="text-xl font-semibold">Total: ${total.toFixed(2)}</p>
             </div>
 
             <div className="mt-10 text-sm">
@@ -324,68 +327,12 @@ export default function Home() {
       </div>
 
       <style jsx>{`
-        .input {
-  border: 1px solid #e5e7eb;
-  padding: 14px;
-  border-radius: 10px;
-  width: 100%;
-  transition: border 0.2s, box-shadow 0.2s;
-}
-
-.input:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
-}
-
-.btn-primary {
-  background: linear-gradient(to right, #4f46e5, #6366f1);
-  color: white;
-  padding: 16px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.25);
-  opacity: 0.95;
-}
-
-.btn-primary:active {
-  transform: scale(0.98);
-}
-
-.btn-secondary {
-  background: linear-gradient(to right, #06b6d4, #3b82f6);
-  color: white;
-  padding: 16px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-secondary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(6, 182, 212, 0.25);
-  opacity: 0.95;
-}
-
-.btn-secondary:active {
-  transform: scale(0.98);
-}
-
-.link-btn {
-  color: #4f46e5;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.link-btn:hover {
-  text-decoration: underline;
-  opacity: 0.8;
-}
+        .input { border:1px solid #e5e7eb; padding:14px; border-radius:10px; width:100%; }
+        .btn-primary { background:linear-gradient(to right,#4f46e5,#6366f1); color:white; padding:16px; border-radius:10px; transition:0.2s; }
+        .btn-primary:hover { transform:translateY(-2px); opacity:0.95; }
+        .btn-secondary { background:linear-gradient(to right,#06b6d4,#3b82f6); color:white; padding:16px; border-radius:10px; transition:0.2s; }
+        .btn-secondary:hover { transform:translateY(-2px); opacity:0.95; }
+        .link-btn { color:#4f46e5; cursor:pointer; }
       `}</style>
     </div>
   );

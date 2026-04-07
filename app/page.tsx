@@ -15,19 +15,11 @@ export default function Home() {
   const [isMobile, setIsMobile] = useState(false);
   const [paid, setPaid] = useState(false);
 
-  useEffect(() => {
-    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("paid") === "true") {
-      setPaid(true);
-    }
-  }, []);
-
   const [form, setForm] = useState({
     invoiceNumber: "",
     date: "",
     dueDate: "",
+    tax: 0,
     yourName: "",
     yourAddress: "",
     clientName: "",
@@ -36,8 +28,34 @@ export default function Home() {
     items: [{ description: "", qty: 1, rate: 0 }] as Item[],
   });
 
+  useEffect(() => {
+    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("paid") === "true") {
+      setPaid(true);
+      localStorage.setItem(
+        "paid",
+        JSON.stringify({ value: true, date: Date.now() })
+      );
+    } else {
+      const stored = localStorage.getItem("paid");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const valid = Date.now() - parsed.date < 1000 * 60 * 60 * 24;
+
+        if (parsed.value && valid) setPaid(true);
+        else localStorage.removeItem("paid");
+      }
+    }
+  }, []);
+
   const handleChange = (e: any) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const value =
+      e.target.name === "tax" ? Number(e.target.value) : e.target.value;
+
+    setForm({ ...form, [e.target.name]: value });
   };
 
   const updateItem = <K extends keyof Item>(
@@ -57,10 +75,13 @@ export default function Home() {
     });
   };
 
-  const total = form.items.reduce(
+  const subtotal = form.items.reduce(
     (sum, item) => sum + item.qty * item.rate,
     0
   );
+
+  const taxAmount = (subtotal * form.tax) / 100;
+  const total = subtotal + taxAmount;
 
   const generatePDF = async () => {
     if (isMobile) return;
@@ -137,7 +158,7 @@ export default function Home() {
 
         {paid && (
           <div className="mt-3 bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg text-sm">
-            ✅ Payment successful — watermark removed
+            ✅ Payment unlocked — valid for 24h on this device
           </div>
         )}
 
@@ -153,24 +174,15 @@ export default function Home() {
           <input name="invoiceNumber" placeholder="Invoice number" onChange={handleChange} className="input"/>
 
           <div className="grid grid-cols-2 gap-3">
-            <input
-              type="text"
-              name="date"
-              placeholder="Invoice date"
-              onFocus={(e) => (e.target.type = "date")}
-              onBlur={(e) => !e.target.value && (e.target.type = "text")}
-              onChange={handleChange}
-              className="input"
-            />
-            <input
-              type="text"
-              name="dueDate"
-              placeholder="Due date"
-              onFocus={(e) => (e.target.type = "date")}
-              onBlur={(e) => !e.target.value && (e.target.type = "text")}
-              onChange={handleChange}
-              className="input"
-            />
+            <input type="text" name="date" placeholder="Invoice date"
+              onFocus={(e)=>e.target.type="date"}
+              onBlur={(e)=>!e.target.value&&(e.target.type="text")}
+              onChange={handleChange} className="input"/>
+
+            <input type="text" name="dueDate" placeholder="Due date"
+              onFocus={(e)=>e.target.type="date"}
+              onBlur={(e)=>!e.target.value&&(e.target.type="text")}
+              onChange={handleChange} className="input"/>
           </div>
 
           <input name="yourName" placeholder="Your name" onChange={handleChange} className="input"/>
@@ -184,38 +196,31 @@ export default function Home() {
 
             {form.items.map((item, i) => (
               <div key={i} className="grid grid-cols-3 gap-2 mb-2">
-                <input
-                  placeholder="Description"
-                  className="input col-span-3"
-                  onChange={(e) => updateItem(i, "description", e.target.value)}
-                />
-                <input
-                  placeholder="Qty"
-                  type="number"
-                  className="input"
-                  onChange={(e) => updateItem(i, "qty", Number(e.target.value))}
-                />
-                <input
-                  placeholder="Price"
-                  type="number"
-                  className="input"
-                  onChange={(e) => updateItem(i, "rate", Number(e.target.value))}
-                />
+                <input placeholder="Description" className="input col-span-3"
+                  onChange={(e)=>updateItem(i,"description",e.target.value)}/>
+                <input placeholder="Qty" type="number" className="input"
+                  onChange={(e)=>updateItem(i,"qty",Number(e.target.value))}/>
+                <input placeholder="Price" type="number" className="input"
+                  onChange={(e)=>updateItem(i,"rate",Number(e.target.value))}/>
               </div>
             ))}
 
-            <button onClick={addItem} className="link-btn">
-              + Add item
-            </button>
+            <button onClick={addItem} className="link-btn">+ Add item</button>
           </div>
 
-          <textarea
-            name="paymentDetails"
-            placeholder="Payment details (Bank, Wise, PayPal...)"
+                    {/* TAX */}
+                    <input
+            name="tax"
+            type="number"
+            placeholder="Tax (%)"
             onChange={handleChange}
             className="input"
-            rows={4}
           />
+
+          <textarea name="paymentDetails"
+            placeholder="Payment details (Bank, Wise, PayPal...)"
+            onChange={handleChange}
+            className="input" rows={4}/>
 
           {/* CTA */}
           <div className="flex flex-col gap-3">
@@ -237,10 +242,7 @@ export default function Home() {
             {!isMobile && !paid && (
               <button
                 onClick={() =>
-                  window.open(
-                    "https://buy.stripe.com/test_14A28lcN1aYubh03sR9oc00?locale=en",
-                    "_blank"
-                  )
+                  window.open("https://buy.stripe.com/bJe7sE0EX9c8eI1cFH1kA00?locale=en","_blank")
                 }
                 className="btn-secondary"
               >
@@ -253,16 +255,8 @@ export default function Home() {
 
         {/* PREVIEW */}
         <div className="hidden lg:flex justify-center">
-          <div
-            id="invoice"
-            className="bg-white shadow-lg"
-            style={{
-              width: "794px",
-              height: "1123px",
-              padding: "50px",
-              fontFamily: "Inter, Arial",
-            }}
-          >
+          <div id="invoice" className="bg-white shadow-lg"
+            style={{ width:"794px", height:"1123px", padding:"50px", fontFamily:"Inter, Arial" }}>
 
             <div className="flex justify-between mb-10">
               <div>
@@ -313,10 +307,9 @@ export default function Home() {
             </table>
 
             <div className="mt-10 text-right">
-              <p className="text-gray-500">Subtotal: ${total}</p>
-              <p className="text-xl font-semibold mt-1">
-                Total: ${total}
-              </p>
+              <p className="text-gray-500">Subtotal: ${subtotal}</p>
+              <p className="text-gray-500">Tax ({form.tax}%): ${taxAmount.toFixed(2)}</p>
+              <p className="text-xl font-semibold mt-1">Total: ${total.toFixed(2)}</p>
             </div>
 
             <div className="mt-10 text-sm">
@@ -331,45 +324,10 @@ export default function Home() {
       </div>
 
       <style jsx>{`
-        .input {
-          border: 1px solid #e5e7eb;
-          padding: 14px;
-          border-radius: 10px;
-          width: 100%;
-        }
-
-        .btn-primary {
-          background: linear-gradient(to right, #4f46e5, #6366f1);
-          color: white;
-          padding: 16px;
-          border-radius: 10px;
-          cursor: pointer;
-          transition: 0.2s;
-        }
-
-        .btn-primary:hover {
-          transform: translateY(-2px);
-          opacity: 0.95;
-        }
-
-        .btn-secondary {
-          background: linear-gradient(to right, #06b6d4, #3b82f6);
-          color: white;
-          padding: 16px;
-          border-radius: 10px;
-          cursor: pointer;
-          transition: 0.2s;
-        }
-
-        .btn-secondary:hover {
-          transform: translateY(-2px);
-          opacity: 0.95;
-        }
-
-        .link-btn {
-          color: #4f46e5;
-          cursor: pointer;
-        }
+        .input { border:1px solid #e5e7eb; padding:14px; border-radius:10px; width:100%; }
+        .btn-primary { background:linear-gradient(to right,#4f46e5,#6366f1); color:white; padding:16px; border-radius:10px; }
+        .btn-secondary { background:linear-gradient(to right,#06b6d4,#3b82f6); color:white; padding:16px; border-radius:10px; }
+        .link-btn { color:#4f46e5; cursor:pointer; }
       `}</style>
     </div>
   );

@@ -1,3 +1,4 @@
+export const MAX_WORKSPACE_BYTES = 3 * 1024 * 1024;
 export const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'MXN', 'AUD'] as const;
 export type Currency = typeof CURRENCIES[number];
 export type Item = { id: string; description: string; quantity: number; rate: number };
@@ -11,7 +12,7 @@ export type Invoice = {
   currency: Currency; status: 'draft' | 'sent' | 'paid'; items: Item[]; tax: number; discount: number;
   notes: string; payment: string; template: 'studio' | 'minimal' | 'classic'; accent: string;
 };
-export type Workspace = { version: 1; demo: boolean; business: Business; clients: Contact[]; services?:Service[]; invoices: Invoice[] };
+export type Workspace = { numbering?:{invoice:number;quote:number}; version: 1; demo: boolean; business: Business; clients: Contact[]; services?:Service[]; invoices: Invoice[] };
 export const ACCENTS = ['#5359e8', '#7c4dce', '#2563b5', '#28344c'];
 export const STORAGE_KEY = 'getpaidfast.workspace.v1';
 export const uid = () => crypto.randomUUID();
@@ -31,17 +32,18 @@ export function statusOf(invoice: Invoice, today=localDate()) {
   if(invoice.kind==='quote')return invoice.quoteStatus&&invoice.quoteStatus!=='pending'?invoice.quoteStatus:invoice.status;
   return invoice.status === 'sent' && invoice.due < today ? 'overdue' : invoice.status==='sent'&&received(invoice)>0?'partial':invoice.status;
 }
-export function nextNumber(invoices: Invoice[],kind:'invoice'|'quote'='invoice') {
-  const existing = new Set(invoices.map(i=>i.number)); let n=invoices.length+1;
-  const prefix=kind==='quote'?'QUO':'INV';
-  while (existing.has(`${prefix}-${String(n).padStart(4,'0')}`)) n++;
-  return `${prefix}-${String(n).padStart(4,'0')}`;
+export function nextNumber(source:Invoice[]|Workspace,kind:'invoice'|'quote'='invoice') {
+  const invoices=Array.isArray(source)?source:source.invoices;const prefix=kind==='quote'?'QUO':'INV';
+  let next=Array.isArray(source)?1:source.numbering?.[kind]||1;
+  for(const invoice of invoices){const match=invoice.number.trim().match(new RegExp(`^${prefix}-(\\d+)$`,'i'));if(match){const n=Number(match[1]);if(Number.isSafeInteger(n)&&n<Number.MAX_SAFE_INTEGER)next=Math.max(next,n+1);}}
+  return `${prefix}-${String(next).padStart(4,'0')}`;
 }
+export function numberingFor(workspace:Workspace){return {invoice:Number(nextNumber(workspace).slice(4)),quote:Number(nextNumber(workspace,'quote').slice(4))};}
 export function emptyWorkspace(): Workspace {
   return {version:1,demo:false,business:{name:'',email:'',address:'',payment:'',currency:'USD',accent:ACCENTS[0]},clients:[],services:[],invoices:[]};
 }
 export function newInvoice(workspace: Workspace): Invoice {
-  return {kind:'invoice',payments:[],id:uid(),number:nextNumber(workspace.invoices),client:{id:'',name:'',email:'',address:''},business:{...workspace.business},date:localDate(),due:datePlus(14),currency:workspace.business.currency,status:'draft',items:[{id:uid(),description:'',quantity:1,rate:0}],tax:0,discount:0,notes:'Thank you for your business.',payment:workspace.business.payment,template:'studio',accent:workspace.business.accent};
+  return {kind:'invoice',payments:[],id:uid(),number:nextNumber(workspace),client:{id:'',name:'',email:'',address:''},business:{...workspace.business},date:localDate(),due:datePlus(14),currency:workspace.business.currency,status:'draft',items:[{id:uid(),description:'',quantity:1,rate:0}],tax:0,discount:0,notes:'Thank you for your business.',payment:workspace.business.payment,template:'studio',accent:workspace.business.accent};
 }
 export function demoWorkspace(): Workspace {
   const workspace=emptyWorkspace(); workspace.demo=true;
@@ -83,10 +85,12 @@ const logo=(v:unknown)=>{
 };
 const business = (v:unknown):v is Business => obj(v)&&logo(v.logo)&&str(v.name,200)&&str(v.email,200)&&str(v.address)&&str(v.payment)&&currency(v.currency)&&ACCENTS.includes(String(v.accent));
 export function parseWorkspace(raw:string): Workspace {
+  if(new TextEncoder().encode(raw).byteLength>MAX_WORKSPACE_BYTES)throw new Error('Workspace exceeds the 3 MB limit. Export a backup and reduce embedded logos or remove older documents.');
   const data:unknown=JSON.parse(raw);
   const oldColors=['#335c48','#3f5295','#9b5b46','#262626'];
   if(obj(data)){const normalize=(v:unknown)=>{if(obj(v)&&oldColors.includes(String(v.accent)))v.accent=ACCENTS[oldColors.indexOf(String(v.accent))];};normalize(data.business);if(Array.isArray(data.invoices))for(const i of data.invoices)if(obj(i)){normalize(i);normalize(i.business);}}
   if (!obj(data)||data.version!==1||typeof data.demo!=='boolean'||!business(data.business)||!Array.isArray(data.clients)||data.clients.length>2000||!data.clients.every(contact)||!Array.isArray(data.invoices)||data.invoices.length>2000) throw new Error('This is not a valid GetPaidFast backup.');
+  if(data.numbering!==undefined&&(!obj(data.numbering)||!Number.isSafeInteger(data.numbering.invoice)||!num(data.numbering.invoice,Number.MAX_SAFE_INTEGER)||data.numbering.invoice<1||!Number.isSafeInteger(data.numbering.quote)||!num(data.numbering.quote,Number.MAX_SAFE_INTEGER)||data.numbering.quote<1))throw new Error('The backup contains invalid document numbering.');
   if(data.services!==undefined&&(!Array.isArray(data.services)||data.services.length>2000||!data.services.every(v=>obj(v)&&str(v.id,100)&&str(v.name,200)&&num(v.rate,100000000)&&currency(v.currency))))throw new Error('The backup contains an invalid service.');
   for (const i of data.invoices) {
     if (!obj(i)||!str(i.id,100)||!str(i.number,100)||!contact(i.client)||!business(i.business)||!currency(i.currency)||!str(i.date,10)||!validDate(i.date)||!str(i.due,10)||!validDate(i.due)||!['draft','sent','paid'].includes(String(i.status))||!['studio','minimal','classic'].includes(String(i.template))||!ACCENTS.includes(String(i.accent))||!num(i.tax,100)||!num(i.discount,100)||!str(i.notes)||!str(i.payment)||!Array.isArray(i.items)||!i.items.length||i.items.length>200||!i.items.every(it=>obj(it)&&str(it.id,100)&&str(it.description,5000)&&num(it.quantity,100000)&&it.quantity>0&&num(it.rate,100000000))) throw new Error('The backup contains an invalid invoice.');

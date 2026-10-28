@@ -9,7 +9,7 @@ A Next.js 16 invoicing workspace for freelancers and independent businesses. Pub
 - Dashboard by currency, overdue balances, search, duplicate, archive and restore.
 - Quote status records and conversion to an invoice.
 - Multipage PDF, CSV export, full JSON backup and import with validation.
-- Free: 10 saved documents and branded PDFs. Pro: up to 2,000 documents and unbranded PDFs, within a 10 MB workspace limit.
+- Free: 10 saved documents and branded PDFs. Pro: up to 2,000 documents and unbranded PDFs, within a 3 MB application workspace limit.
 - Saved records synchronize with the signed-in account. Drafts and recovery copies remain in the browser. Revision checks prevent another device from silently overwriting newer records.
 
 Client payments and quote responses are recorded manually. The app does not collect client invoice payments, send invoices, provide recurring invoice automation, connect banks, or provide accounting/tax compliance. Demo names and amounts are illustrative.
@@ -18,7 +18,7 @@ Client payments and quote responses are recorded manually. The app does not coll
 
 Use Node.js 24, then `npm ci`, `npm test`, `npm run lint`, and `npm run build`. `npm run dev` starts local development. A local environment that restricts Turbopack's child process ports can use `npm run build -- --webpack`.
 
-The test suite covers invoice arithmetic, payments, invalid imports, subscription ownership/expiry/renewal rules, and multipage PDF content. A real charged purchase is a separate manual verification and is never implied by unit tests.
+The test suite covers invoice arithmetic, payments, invalid imports, subscription ownership/expiry/renewal/refund rules, and multipage PDF content. A real charged purchase is a separate manual verification and is never implied by unit tests.
 
 ## Environment
 
@@ -49,11 +49,15 @@ In Authentication, enable Google using the dedicated GetPaidFast Google Cloud we
 
 Checkout requires a signed-in owner. The monthly price, currency and interval are validated on the server. Account metadata binds each checkout and subscription to its owner. Checkout requests reuse an existing open session and have a bounded idempotency key to reduce duplicate subscriptions.
 
-`POST /api/stripe-webhook` verifies Stripe's signature, retrieves the current subscription and applies an idempotent database update. Subscribe to checkout completion, subscription create/update/delete, invoice paid and payment failed events. Retrying a failed event is safe.
+`POST /api/stripe-webhook` verifies Stripe's signature, retrieves the current subscription and applies an idempotent database update. Subscribe to checkout completion, subscription create/update/delete, invoice paid/payment failed, charge refunded and charge dispute created/closed events. Each event retrieves current Stripe payment state rather than trusting an event payload as entitlement. The service-role-only snapshot RPC stores a verified entitlement flag; database quotas also require that flag. Duplicate events and stale observations cannot overwrite a newer paid subscription. Retrying a failed event is safe.
 
 Every clean PDF export rechecks the subscription with Stripe, including the current paid invoice and nonrefunded/nondisputed charges. Client flags and checkout query strings never grant Pro access. A verified paid invoice can synchronize its entitlement before a delayed webhook arrives. Cancellation stops renewal while retaining access through the paid period. Billing management is available from the account.
 
-Do not remove or repurpose legacy Stripe payment links silently: previous one-time purchases are separate from this new monthly plan.
+The legacy 24-hour Payment Link was audited (no completed sessions) and disabled on 2026-10-28. Existing one-time purchases must never be interpreted as monthly subscriptions.
+
+The opt-in `scripts/e2e-billing.cjs` runner accepts only an explicitly approved private temporary credential file, requires a Stripe test key and the expected test account, creates labeled disposable users, runs Checkout/portal/refund/time-travel scenarios, and removes its fixtures and credential file. It is not part of normal builds. On 2026-10-28, 13 integration assertions passed with no real charges. Stripe portal scheduling can use `cancel_at` rather than the older `cancel_at_period_end` flag; both are handled. The full run used the legacy flag after observing this portal difference; the actual portal response is also covered by a regression check.
+
+The application rejects workspaces above 3 MB before saving, keeping normal JSON transfers below Vercel’s function payload ceiling. The database retains a separate 10 MB defensive ceiling. Number sequences are retained when records are removed, so deleting a document does not reuse its number.
 
 ## Health check
 

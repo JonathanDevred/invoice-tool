@@ -1,34 +1,14 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { Analytics } from "@vercel/analytics/next"
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export const metadata: Metadata = {
-  title: "GetPaidFast — Create your invoice",
-  description: "Create your invoices simply.",
+import type {Metadata} from 'next';
+import {SITE_URL,APP_DESCRIPTION} from '@/lib/seo';
+import './globals.css';
+export const metadata:Metadata={
+ metadataBase:new URL(SITE_URL),
+ title:{default:'Free Invoice Generator & Client Workspace | GetPaidFast',template:'%s | GetPaidFast'},
+ description:APP_DESCRIPTION,
+ alternates:{canonical:'/'},
+ applicationName:'GetPaidFast',
+ openGraph:{type:'website',locale:'en_US',siteName:'GetPaidFast',title:'Professional invoicing. Without the overhead.',description:APP_DESCRIPTION,url:SITE_URL},
+ twitter:{card:'summary_large_image',title:'GetPaidFast — Professional invoicing workspace',description:APP_DESCRIPTION},
+ robots:{index:true,follow:true,googleBot:{index:true,follow:true,'max-image-preview':'large','max-snippet':-1,'max-video-preview':-1}},
 };
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
-    </html>
-  );
-}
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="en"><body>{children}</body></html>;}
